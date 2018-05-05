@@ -55,7 +55,6 @@ class EndpointLogger(BaseLogger):
         self.model_version = model_version
 
     def log(self, inputs, outputs, return_code, caller):
-        # self.logger.info("Log!  %s, %s, %s", self.model_name, self.model_version, inputs)
         log_message = dict(model_name=self.model_name,
                            model_version=self.model_version,
                            time=self.get_current_time(),
