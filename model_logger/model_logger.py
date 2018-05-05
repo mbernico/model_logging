@@ -1,5 +1,7 @@
 import logging
 import sys
+import time
+import datetime
 import json
 
 
@@ -19,9 +21,30 @@ class BaseLogger(Borg):
         if not hasattr(self, 'logger'):  # create a monostate logger only the first time the class is instantiated
             self.logger = logging.getLogger()
             self.logger.setLevel(logging.INFO)
+            self.fmt = logging.Formatter("%(message)s")
             self.stdout_handler = logging.StreamHandler(sys.stdout)
+            self.stdout_handler.setFormatter(self.fmt)
             self.logger.addHandler(self.stdout_handler)
 
+    def start_timer(self):
+        self.start_time = time.time()
+
+    def get_elapsed_time(self):
+        now = time.time()
+        try:
+            delta_time = now - self.start_time
+        except AttributeError as a:
+            logging.debug("elapsed time can't be computed without a call to start_timer() first.")
+            return False
+        return delta_time
+
+    @staticmethod
+    def get_current_time(human=True):
+        timestamp = time.time()
+        human_readable_time = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S %z')
+        if human:
+            return human_readable_time
+        return timestamp
 
 
 class EndpointLogger(BaseLogger):
@@ -30,15 +53,17 @@ class EndpointLogger(BaseLogger):
         super().__init__()
         self.model_name = model_name
         self.model_version = model_version
-        fmt = logging.Formatter('{"time":%(asctime)s,"model_name":%(model_name)s,"model_version":%(model_version)s,'
-                                '"delta_time":%(delta_time)s,"inputs":%(inputs)s,"outputs":%(outputs)s,'
-                                '"return_code":%(return_code)d, "caller":%(caller)s}', datefmt="%Y-%m-%d %H:%M:%S %z")
-        self.stdout_handler.setFormatter(fmt=fmt)
-        self.logger.addHandler(self.stdout_handler)
 
     def log(self, inputs, outputs, return_code, caller):
         # self.logger.info("Log!  %s, %s, %s", self.model_name, self.model_version, inputs)
-        self.logger.info(msg="test", extra={"model_name":self.model_name, "model_version":self.model_version, "delta_time":-1,
-                         "inputs":inputs, "outputs":outputs, "return_code":return_code, "caller":caller})
+        log_message = dict(model_name=self.model_name,
+                           model_version=self.model_version,
+                           time=self.get_current_time(),
+                           delta_time= self.get_elapsed_time(),
+                           inputs=inputs,
+                           outputs=outputs,
+                           return_code=return_code,
+                           caller=caller)
+        self.logger.info(msg=json.dumps(log_message))
 
 
